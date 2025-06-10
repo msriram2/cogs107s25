@@ -10,6 +10,32 @@ import pandas as pd
 from pathlib import Path
 import os
 
+"""
+GOAL: Adapt SDT model to quantify the effect of the Stimulus
+Type and Trial Difficulty on the participants' performance. 
+    - Step 1: Check the convergence of the SDT model (using a delta plot) and 
+    display the posterior distributions of the parameter.
+    - Step 2: Compare the effects of the Trial Difficulty manipulation with the effects 
+    of the Stimulus Type Manipulation. 
+"""
+
+"""
+Important terms to know: 
+- Choice Response Time (CRT): Measurements collected in experiments 
+where participants are required to choose between two or more response options 
+based on a stimulus --> measures the time taken to make that choice. 
+- Diffusion Model: Mathematical framework used to explain how people make decisions between two 
+or more choices over time based on noise and uncertain evidence. Accounts for both accuracy 
+and reaction time. 
+- Delta Plot: A graph that displays response time (RT) distributions based 
+on tasks that display conflicting or competing responses. 
+- Signal Detection Theory: A framework for how people detect signals
+under conditions of uncertainty. 
+- Posterior Distribution: The result is a distribution reflecting both 
+the prior belief and evidence from the data. Represents an updated belief about 
+a parameter or hypothesis after observering data.
+"""
+
 # Mapping dictionaries for categorical variables
 # These convert categorical labels to numeric codes for analysis
 MAPPINGS = {
@@ -312,8 +338,19 @@ def draw_delta_plots(data, pnum):
     # Save the figure
     plt.savefig(OUTPUT_DIR / f'delta_plots_{pnum}.png')
 
+def run_analysis(): 
+    file = 'data.csv'
+    part_num = 1
+    new_data = read_data(file, 'sdt', display) 
+    new_sdt_model = apply_hierarchical_sdt_model(new_data)
+    draw_delta_plots(new_data, part_num)
+
 # Main execution
 if __name__ == "__main__":
+    """
     file_to_print = Path(__file__).parent / 'README.md'
     with open(file_to_print, 'r') as file:
         print(file.read())
+    """
+    run_analysis()
+    
