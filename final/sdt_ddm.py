@@ -225,24 +225,32 @@ def apply_hierarchical_sdt_model(data, file_path):
         mean_criterion = pm.Normal('mean_criterion', mu=0.0, sigma=1.0, shape=C)
         stdev_criterion = pm.HalfNormal('stdev_criterion', sigma=1.0)
 
-       #Stimulus and trial variables 
+        # Establish priors for trial difficulty and stimulus type 
+        stim_prior = pm.Normal("stim_prior", mu=0.0, sigma=1.0, shape=2)
+        diff_prior = pm.Normal('diff_prior', mu=0.0, sigma=1.0, shape=2)
+
+        #Stimulus and trial variables 
         stimulus_type = trial_data["stimulus_type"].values
         trial_difficulty = trial_data["difficulty"].values
 
-        #CHATGPT Help: Making stimulus type and trial difficulty PyMC compatible
+        #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
+        condition_idx = trial_data["condition"].astype("category").cat.codes.values
+        stimulus_type = trial_data["stimulus_type"].astype("category").cat.codes.values
+        difficulty = trial_data["difficulty"].astype("category").cat.codes.values
+
+        #CHATGPT GENERATED CODE for first line /Help on last two lines: Making stimulus type and trial difficulty PyMC compatible
+        comp_condition = pm.Data("comp_condition", condition_idx)
         comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
         comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
 
-        # Establish priors for trial difficulty and stimulus type 
-        stim_prior = pm.Normal("stim_prior", mu=0.0, sigma=1.0, shape=2.0)
-        diff_prior = pm.Normal('diff_prior', mu=0.0, sigma=1.0, shape=2.0)
 
         #CHATGPT HELP: Establish mean d' 
-        mu_d_prime = mean_d_prime + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
+        mu_d_prime = mean_d_prime[comp_condition] + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
 
 
         # Individual-level parameters
-        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
+        #d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
+        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=mu_d_prime.shape)
         criterion = pm.Normal('criterion', mu=mean_criterion, sigma=stdev_criterion, shape=(P, C))
         
         # Calculate hit and false alarm rates using SDT
