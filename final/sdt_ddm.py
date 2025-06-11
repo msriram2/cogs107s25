@@ -234,8 +234,8 @@ def apply_hierarchical_sdt_model(data, file_path):
         comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
 
         # Establish priors for trial difficulty and stimulus type 
-        stim_prior = pm.Normal("stim_type", mu=0.0, sigma=1.0, shape=2.0)
-        diff_prior = pm.Normal('trial_diff', mu=0.0, sigma=1.0, shape=2.0)
+        stim_prior = pm.Normal("stim_prior", mu=0.0, sigma=1.0, shape=2.0)
+        diff_prior = pm.Normal('diff_prior', mu=0.0, sigma=1.0, shape=2.0)
 
         #CHATGPT HELP: Establish mean d' 
         mu_d_prime = mean_d_prime + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
