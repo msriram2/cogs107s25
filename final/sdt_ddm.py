@@ -225,11 +225,7 @@ def apply_hierarchical_sdt_model(data, file_path):
         mean_criterion = pm.Normal('mean_criterion', mu=0.0, sigma=1.0, shape=C)
         stdev_criterion = pm.HalfNormal('stdev_criterion', sigma=1.0)
 
-        # Establish priors for trial difficulty and stimulus type 
-        stim_type = pm.Normal("stim_type", mu=0.0, sigma=1.0)
-        trial_diff = pm.Normal('trial_diff', mu=0.0, sigma=1.0)
-
-        #Stimulus and trial variables 
+       #Stimulus and trial variables 
         stimulus_type = trial_data["stimulus_type"].values
         trial_difficulty = trial_data["difficulty"].values
 
@@ -237,8 +233,12 @@ def apply_hierarchical_sdt_model(data, file_path):
         comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
         comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
 
+        # Establish priors for trial difficulty and stimulus type 
+        stim_prior = pm.Normal("stim_type", mu=0.0, sigma=1.0, shape=2.0)
+        diff_prior = pm.Normal('trial_diff', mu=0.0, sigma=1.0, shape=2.0)
+
         #CHATGPT HELP: Establish mean d' 
-        mu_d_prime = mean_d_prime + stim_type * comp_stim_type + comp_trial_diff * trial_diff
+        mu_d_prime = mean_d_prime + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
 
 
         # Individual-level parameters
@@ -266,13 +266,16 @@ def apply_hierarchical_sdt_model(data, file_path):
         #CHATGPT Help
         trace = pm.sample() 
     
-    #CHATGPT Help
-    summary = pm.summary(trace)
+    #CHATGPT Help: Checking Convergence using summary stats and a trace plot
+    summary = pm.summary(trace, var_names=["mean_d_prime", "stim_type", "trial_diff"])
     print(summary)
+
+    """
     sdt_plot = pm.plot_trace(trace)
     print(sdt_plot)
     posterior = pm.plot_posterior(trace, var_names=["d_prime", "criterion"])
     print(posterior)
+    """
     
     return sdt_model
 
@@ -380,10 +383,11 @@ def draw_delta_plots(data, pnum):
 
 def run_analysis(): 
     file = 'data.csv'
-    part_num = 1
+    #part_num = 1
     sdt_new_data = read_data(file, 'sdt') 
     delta_new_data = read_data(file, 'delta plots')
     new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data, file)
+    part_num = sdt_new_data["pnum"].value
     draw_delta_plots(delta_new_data, part_num)
     print('Successfully Generated Delta Plots')
 
