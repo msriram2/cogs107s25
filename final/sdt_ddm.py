@@ -266,7 +266,7 @@ def draw_delta_plots(data, pnum):
     
     # Create output directory
     """OUTPUT_DIR = Path(__file__).parent.parent.parent / 'output'"""
-    OUTPUT_DIR = Path(__file__) / 'output'
+    OUTPUT_DIR = Path(__file__).parent / 'output'
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # Define marker style for plots
@@ -351,6 +351,7 @@ def run_analysis():
     delta_new_data = read_data(file, 'delta plots')
     new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data)
     draw_delta_plots(delta_new_data, part_num)
+    print('Successfully Generated Delta Plots')
 
 # Main execution
 if __name__ == "__main__":
