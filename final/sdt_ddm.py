@@ -68,6 +68,10 @@ def read_data(file_path, prepare_for='sdt', display=False):
     """
     # Read and preprocess data
     data = pd.read_csv(file_path)
+
+    # Removes NA values 
+    data = data.dropna(how ='any')
+    data = data.dropna(axis=1, how='any')
     
     # Convert categorical variables to numeric codes
     for col, mapping in MAPPINGS.items():
@@ -341,9 +345,10 @@ def draw_delta_plots(data, pnum):
 def run_analysis(): 
     file = 'data.csv'
     part_num = 1
-    new_data = read_data(file, 'sdt', display) 
-    new_sdt_model = apply_hierarchical_sdt_model(new_data)
-    draw_delta_plots(new_data, part_num)
+    sdt_new_data = read_data(file, 'sdt') 
+    delta_new_data = read_data(file, 'delta plots')
+    new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data)
+    draw_delta_plots(delta_new_data, part_num)
 
 # Main execution
 if __name__ == "__main__":
