@@ -234,7 +234,8 @@ def apply_hierarchical_sdt_model(data, file_path):
         trial_difficulty = trial_data["difficulty"].values
 
         #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
-        condition_idx = trial_data["condition"].astype("category").cat.codes.values
+        #condition_idx = trial_data["condition"].astype("category").cat.codes.values
+        condition_idx = trial_data["trial_in_condition"].values
         stimulus_type = trial_data["stimulus_type"].astype("category").cat.codes.values
         difficulty = trial_data["difficulty"].astype("category").cat.codes.values
 
