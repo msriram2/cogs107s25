@@ -234,8 +234,7 @@ def apply_hierarchical_sdt_model(data, file_path):
         trial_difficulty = trial_data["difficulty"].values
 
         #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
-        #condition_idx = trial_data["condition"].astype("category").cat.codes.values
-        condition_idx = trial_data["trial_in_condition"].values
+        condition_idx = data["condition"].astype("category").cat.codes.values
         stimulus_type = trial_data["stimulus_type"].astype("category").cat.codes.values
         difficulty = trial_data["difficulty"].astype("category").cat.codes.values
 
@@ -271,9 +270,13 @@ def apply_hierarchical_sdt_model(data, file_path):
                    n=data['nNoise'], 
                    p=false_alarm_rate[data['pnum']-1, data['condition']], 
                    observed=data['false_alarms'])
+        
+        print("Unique values in comp_condition:", np.unique(comp_condition))
+        print("Shape of mean_d_prime:", mean_d_prime.eval().shape)  # only after model context
 
         #CHATGPT Help
         trace = pm.sample() 
+
     
     #CHATGPT Help: Checking Convergence using summary stats and a trace plot
     summary = pm.summary(trace, var_names=["mean_d_prime", "stim_type", "trial_diff"])
