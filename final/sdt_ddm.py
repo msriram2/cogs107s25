@@ -194,7 +194,7 @@ def read_data(file_path, prepare_for='sdt', display=False):
     return data
 
 
-def apply_hierarchical_sdt_model(data):
+def apply_hierarchical_sdt_model(data, file_path):
     """Apply a hierarchical Signal Detection Theory model using PyMC.
     
     This function implements a Bayesian hierarchical model for SDT analysis,
@@ -209,6 +209,12 @@ def apply_hierarchical_sdt_model(data):
     # Get unique participants and conditions
     P = len(data['pnum'].unique())
     C = len(data['condition'].unique())
+
+    trial_data = pd.read_csv(file_path)
+
+    # Convert categorical variables to numeric codes
+    for col, mapping in MAPPINGS.items():
+        trial_data[col] = trial_data[col].map(mapping)
     
     # Define the hierarchical model
     with pm.Model() as sdt_model:
@@ -218,14 +224,31 @@ def apply_hierarchical_sdt_model(data):
         
         mean_criterion = pm.Normal('mean_criterion', mu=0.0, sigma=1.0, shape=C)
         stdev_criterion = pm.HalfNormal('stdev_criterion', sigma=1.0)
-        
+
+        # Establish priors for trial difficulty and stimulus type 
+        stim_type = pm.Normal("stim_type", mu=0.0, sigma=1.0)
+        trial_diff = pm.Normal('trial_diff', mu=0.0, sigma=1.0)
+
+        #Stimulus and trial variables 
+        stimulus_type = trial_data["stimulus_type"].values
+        trial_difficulty = trial_data["difficulty"].values
+
+        #CHATGPT Help: Making stimulus type and trial difficulty PyMC compatible
+        comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
+        comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
+
+        #CHATGPT HELP: Establish mean d' 
+        mu_d_prime = mean_d_prime + stim_type * comp_stim_type + comp_trial_diff * trial_diff
+
+
         # Individual-level parameters
-        d_prime = pm.Normal('d_prime', mu=mean_d_prime, sigma=stdev_d_prime, shape=(P, C))
+        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
         criterion = pm.Normal('criterion', mu=mean_criterion, sigma=stdev_criterion, shape=(P, C))
         
         # Calculate hit and false alarm rates using SDT
         hit_rate = pm.math.invlogit(d_prime - criterion)
         false_alarm_rate = pm.math.invlogit(-criterion)
+
                 
         # Likelihood for signal trials
         # Note: pnum is 1-indexed in the data, but needs to be 0-indexed for the model, so we change the indexing here.  The results table will show participant numbers starting from 0, so we need to interpret the results accordingly.
@@ -239,6 +262,17 @@ def apply_hierarchical_sdt_model(data):
                    n=data['nNoise'], 
                    p=false_alarm_rate[data['pnum']-1, data['condition']], 
                    observed=data['false_alarms'])
+
+        #CHATGPT Help
+        trace = pm.sample() 
+    
+    #CHATGPT Help
+    summary = pm.summary(trace)
+    print(summary)
+    sdt_plot = pm.plot_trace(trace)
+    print(sdt_plot)
+    posterior = pm.plot_posterior(trace, var_names=["d_prime", "criterion"])
+    print(posterior)
     
     return sdt_model
 
@@ -349,7 +383,7 @@ def run_analysis():
     part_num = 1
     sdt_new_data = read_data(file, 'sdt') 
     delta_new_data = read_data(file, 'delta plots')
-    new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data)
+    new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data, file)
     draw_delta_plots(delta_new_data, part_num)
     print('Successfully Generated Delta Plots')
 
