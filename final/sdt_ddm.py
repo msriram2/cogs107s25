@@ -126,8 +126,7 @@ def read_data(file_path, prepare_for='sdt', display=False):
                     })
         
         data = pd.DataFrame(sdt_data)
-        #**Print dataframe 
-        print(data)
+
         
         if display:
             print("\nSDT summary:")
@@ -191,8 +190,6 @@ def read_data(file_path, prepare_for='sdt', display=False):
             print(dp_data)
             
         data = pd.DataFrame(dp_data)
-        #** Print dataframe 
-        print(data)
 
     return data
 
@@ -268,7 +265,8 @@ def draw_delta_plots(data, pnum):
                             figsize=(4*n_conditions, 4*n_conditions))
     
     # Create output directory
-    OUTPUT_DIR = Path(__file__).parent.parent.parent / 'output'
+    """OUTPUT_DIR = Path(__file__).parent.parent.parent / 'output'"""
+    OUTPUT_DIR = Path(__file__) / 'output'
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # Define marker style for plots
