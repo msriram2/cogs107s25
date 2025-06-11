@@ -67,11 +67,11 @@ def read_data(file_path, prepare_for='sdt', display=False):
         DataFrame with processed data in the requested format
     """
     # Read and preprocess data
-    data = pd.read_csv(file_path)
+    older_data = pd.read_csv(file_path)
 
     # Removes NA values 
-    data = data.dropna(how ='any')
-    data = data.dropna(axis=1, how='any')
+    old_data = older_data.dropna(how ='any')
+    data = old_data.dropna(axis=1, how='any')
     
     # Convert categorical variables to numeric codes
     for col, mapping in MAPPINGS.items():
@@ -126,6 +126,8 @@ def read_data(file_path, prepare_for='sdt', display=False):
                     })
         
         data = pd.DataFrame(sdt_data)
+        #**Print dataframe 
+        print(data)
         
         if display:
             print("\nSDT summary:")
@@ -189,6 +191,8 @@ def read_data(file_path, prepare_for='sdt', display=False):
             print(dp_data)
             
         data = pd.DataFrame(dp_data)
+        #** Print dataframe 
+        print(data)
 
     return data
 
