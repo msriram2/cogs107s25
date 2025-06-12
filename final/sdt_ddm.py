@@ -10,6 +10,10 @@ import pandas as pd
 from pathlib import Path
 import os
 
+#CHATGTP GENERATED TROUBLESHOOTING
+os.environ['PYTENSOR_FLAGS'] = 'optimizer=fast_compile,exception_verbosity=high'
+
+
 """
 GOAL: Adapt SDT model to quantify the effect of the Stimulus
 Type and Trial Difficulty on the participants' performance. 
@@ -81,6 +85,10 @@ def read_data(file_path, prepare_for='sdt', display=False):
     data['pnum'] = data['participant_id']
     data['condition'] = data['stimulus_type'] + data['difficulty'] * 2
     data['accuracy'] = data['accuracy'].astype(int)
+    data['difficulty'] = data['difficulty'].astype(int)
+    print(data['difficulty'])
+    data['stimulus_type'] = data['stimulus_type'].astype(int)
+    print(data['stimulus_type'])
     
     if display:
         print("\nRaw data sample:")
@@ -91,12 +99,12 @@ def read_data(file_path, prepare_for='sdt', display=False):
     # Transform to SDT format if requested
     if prepare_for == 'sdt':
         # Group data by participant, condition, and signal presence
-        grouped = data.groupby(['pnum', 'condition', 'signal']).agg({
+        grouped = data.groupby(['pnum', 'condition', 'signal', 'difficulty', 'stimulus_type']).agg({
             'accuracy': ['count', 'sum']
         }).reset_index()
         
         # Flatten column names
-        grouped.columns = ['pnum', 'condition', 'signal', 'nTrials', 'correct']
+        grouped.columns = ['pnum', 'condition', 'signal', 'difficulty', 'stimulus_type', 'nTrials', 'correct']
         
         if display:
             print("\nGrouped data:")
@@ -117,6 +125,8 @@ def read_data(file_path, prepare_for='sdt', display=False):
                     sdt_data.append({
                         'pnum': pnum,
                         'condition': condition,
+                        'difficulty': signal_trials['difficulty'].iloc[0], 
+                        'stimulus_type': signal_trials['stimulus_type'].iloc[0],
                         'hits': signal_trials['correct'].iloc[0],
                         'misses': signal_trials['nTrials'].iloc[0] - signal_trials['correct'].iloc[0],
                         'false_alarms': noise_trials['nTrials'].iloc[0] - noise_trials['correct'].iloc[0],
@@ -194,7 +204,7 @@ def read_data(file_path, prepare_for='sdt', display=False):
     return data
 
 
-def apply_hierarchical_sdt_model(data, file_path):
+def apply_hierarchical_sdt_model(data):
     """Apply a hierarchical Signal Detection Theory model using PyMC.
     
     This function implements a Bayesian hierarchical model for SDT analysis,
@@ -209,12 +219,6 @@ def apply_hierarchical_sdt_model(data, file_path):
     # Get unique participants and conditions
     P = len(data['pnum'].unique())
     C = len(data['condition'].unique())
-
-    trial_data = pd.read_csv(file_path)
-
-    # Convert categorical variables to numeric codes
-    for col, mapping in MAPPINGS.items():
-        trial_data[col] = trial_data[col].map(mapping)
     
     # Define the hierarchical model
     with pm.Model() as sdt_model:
@@ -239,6 +243,8 @@ def apply_hierarchical_sdt_model(data, file_path):
         difficulty = trial_data["difficulty"].astype("category").cat.codes.values
 
         #CHATGPT GENERATED CODE for first line /Help on last two lines: Making stimulus type and trial difficulty PyMC compatible
+        #comp_condition = pm.Data("comp_condition", condition_idx)
+
         comp_condition = pm.Data("comp_condition", condition_idx)
         comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
         comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
@@ -270,6 +276,15 @@ def apply_hierarchical_sdt_model(data, file_path):
                    n=data['nNoise'], 
                    p=false_alarm_rate[data['pnum']-1, data['condition']], 
                    observed=data['false_alarms'])
+                
+        
+        print("mean_d_prime shape:", C)
+        print("Unique comp_condition values:", np.unique(condition_idx))
+        print("Max index in comp_condition:", np.max(condition_idx))
+
+        print("Shape of mean_d_prime[comp_condition]:", mean_d_prime[comp_condition].shape)
+        print("Shape of stim_prior[comp_stim_type]:", stim_prior[comp_stim_type].shape)
+        print("Shape of diff_prior[comp_trial_diff]:", diff_prior[comp_trial_diff].shape)
         
         print("Unique values in comp_condition:", np.unique(comp_condition))
         print("Shape of mean_d_prime:", mean_d_prime.eval().shape)  # only after model context
@@ -397,11 +412,12 @@ def run_analysis():
     file = 'data.csv'
     #part_num = 1
     sdt_new_data = read_data(file, 'sdt') 
-    delta_new_data = read_data(file, 'delta plots')
-    new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data, file)
-    part_num = sdt_new_data["pnum"].value
-    draw_delta_plots(delta_new_data, part_num)
-    print('Successfully Generated Delta Plots')
+    print(sdt_new_data)
+    #delta_new_data = read_data(file, 'delta plots')
+    #new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data, file)
+    #part_num = sdt_new_data["pnum"].value
+    #draw_delta_plots(delta_new_data, part_num)
+    #print('Successfully Generated Delta Plots')
 
 # Main execution
 if __name__ == "__main__":
