@@ -10,9 +10,6 @@ import pandas as pd
 from pathlib import Path
 import os
 
-import aesara.tensor as at
-
-
 #CHATGTP GENERATED TROUBLESHOOTING
 os.environ['PYTENSOR_FLAGS'] = 'optimizer=fast_compile,exception_verbosity=high'
 
@@ -218,91 +215,51 @@ def apply_hierarchical_sdt_model(data):
     Returns:
         PyMC model object
     """
-    #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
-    data['pnum'] = data['pnum'].astype("category")
-    data['condition'] = data['condition'].astype("category")
     
-    p_idx = data['pnum'].cat.codes.values
-    c_idx = data['condition'].cat.codes.values
-    stimulus_type = data['stimulus_type'].values
-    trial_difficulty = data['difficulty'].values 
-
-    """
     # Get unique participants and conditions
     P = len(data['pnum'].unique())
     C = len(data['condition'].unique())
-    """ 
-    # Get unique participants and conditions
-    P = len(data['pnum'].cat.categories)
-    C = len(data['condition'].cat.categories)
     
+    #CHATGPT Generated Code: 
+    design_matrix = pd.DataFrame({
+        'intercept': [1, 1, 1, 1],
+        'stimulus_type': [0, 1, 0, 1],  # 0=simple, 1=complex
+        'difficulty': [0, 0, 1, 1],     # 0=easy, 1=hard
+        'interaction': [0, 0, 0, 1]     # only complex & hard gets 1
+    })
+    X = design_matrix.values  # shape (4, 4)
+
     # Define the hierarchical model
     with pm.Model() as sdt_model:
-        # Group-level parameters
-        mean_d_prime = pm.Normal('mean_d_prime', mu=0.0, sigma=1.0, shape=C)
+        #Group-level parameters
+        #Chat GPT Generated Code: 
+        beta_d = pm.Normal('beta_d', mu=0.0, sigma=1.0, shape = 4)
+        mean_d_prime = pm.math.dot(X, beta_d)
+
+        #mean_d_prime = pm.Normal('mean_d_prime', mu=0.0, sigma=1.0, shape=C)
         stdev_d_prime = pm.HalfNormal('stdev_d_prime', sigma=1.0)
         
-        mean_criterion = pm.Normal('mean_criterion', mu=0.0, sigma=1.0, shape=C)
+        #Chat GPT Generated Code: 
+        beta_c = pm.Normal('beta_c', mu=0.0, sigma=1.0, shape=4)
+        mean_criterion = pm.math.dot(X, beta_c)
+        
+        #mean_criterion = pm.Normal('mean_criterion', mu=0.0, sigma=1.0, shape=C)
         stdev_criterion = pm.HalfNormal('stdev_criterion', sigma=1.0)
 
+        """
         # Establish priors for trial difficulty and stimulus type 
         stim_prior = pm.Normal("stim_prior", mu=0.0, sigma=1.0, shape=2)
         diff_prior = pm.Normal('diff_prior', mu=0.0, sigma=1.0, shape=2)
-
         """
-        #Stimulus and trial variables 
-        stimulus_type = data['stimulus_type'].values
-        trial_difficulty = data['difficulty'].values
-        """
-
-        """
-        #CHATGPT GENERATED CODE for first line /Help on last two lines: Making stimulus type and trial difficulty PyMC compatible
-
-        comp_condition = pm.Data("comp_condition", condition_idx)
-        comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
-        comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
-        """
-
-        """
-        #CHATGPT HELP: Establish mean d' 
-        mu_d_prime = mean_d_prime[comp_condition] + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
-
-        print('mu_d_prime shape:', mu_d_prime.eval().shape)
-        """
-
-        """
-        mu_d_prime = mean_d_prime[c_idx] + stim_prior[stimulus_type] + diff_prior[trial_difficulty] 
-
-        print('mu_d_prime shape:', mu_d_prime.eval().shape)
-        """
-        #CHATGPT Generated: For Troubleshooting and help with mu_d_prime
-        # Initialize a (P, C) matrix of mu_d_prime
-        mu_d_prime = at.zeros((P, C))
-
-        # Loop through rows in the data to populate mu_d_prime at [p_idx, c_idx]
-        for i in range(len(data)):
-            p = p_idx[i]
-            c = c_idx[i]
-            stim = stim_idx[i]
-            diff = diff_idx[i]
-
-            # Expression for this trial
-            val = mean_d_prime[c] + stim_prior[stim] + diff_prior[diff]
-
-            # Assign to correct [P, C] cell using `at.set_subtensor`
-            mu_d_prime = at.set_subtensor(mu_d_prime[p, c], val)
-
 
         # Individual-level parameters
-        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
+        d_prime = pm.Normal('d_prime', mu=mean_d_prime, sigma=stdev_d_prime, shape=(P, C))
         criterion = pm.Normal('criterion', mu=mean_criterion, sigma=stdev_criterion, shape=(P, C))
         
         # Calculate hit and false alarm rates using SDT
-        #hit_rate = pm.math.invlogit(d_prime - criterion[data['pnum'] - 1, data['condition']])
         hit_rate = pm.math.invlogit(d_prime - criterion)
         false_alarm_rate = pm.math.invlogit(-criterion)
 
-        """
         # Likelihood for signal trials
         # Note: pnum is 1-indexed in the data, but needs to be 0-indexed for the model, so we change the indexing here.  The results table will show participant numbers starting from 0, so we need to interpret the results accordingly.
         pm.Binomial('hit_obs', 
@@ -315,37 +272,13 @@ def apply_hierarchical_sdt_model(data):
                    n=data['nNoise'], 
                    p=false_alarm_rate[data['pnum']-1, data['condition']], 
                    observed=data['false_alarms'])
-        """ 
-
-        pm.Binomial('hit_obs', 
-                   n=data['nSignal'], 
-                   p=hit_rate[p_idx, c_idx], 
-                   observed=data['hits'])
         
-        # Likelihood for noise trials
-        pm.Binomial('false_alarm_obs', 
-                   n=data['nNoise'], 
-                   p=false_alarm_rate[p_idx, c_idx], 
-                   observed=data['false_alarms'])
-                
-        
-        print("mean_d_prime shape:", C)
-        print("Unique comp_condition values:", np.unique(condition_idx))
-        print("Max index in comp_condition:", np.max(condition_idx))
-
-        print("Shape of mean_d_prime[comp_condition]:", mean_d_prime[comp_condition].shape)
-        print("Shape of stim_prior[comp_stim_type]:", stim_prior[comp_stim_type].shape)
-        print("Shape of diff_prior[comp_trial_diff]:", diff_prior[comp_trial_diff].shape)
-        
-        print("Unique values in comp_condition:", np.unique(comp_condition))
-        print("Shape of mean_d_prime:", mean_d_prime.eval().shape)  # only after model context
-
         #CHATGPT Help
         trace = pm.sample() 
 
     
     #CHATGPT Help: Checking Convergence using summary stats and a trace plot
-    summary = pm.summary(trace, var_names=["mean_d_prime", "stim_type", "trial_diff"])
+    summary = pm.summary(trace, var_names=["beta_d", "beta_c"])
     print(summary)
 
     """
