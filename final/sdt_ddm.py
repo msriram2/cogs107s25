@@ -10,6 +10,9 @@ import pandas as pd
 from pathlib import Path
 import os
 
+import aesara.tensor as at
+
+
 #CHATGTP GENERATED TROUBLESHOOTING
 os.environ['PYTENSOR_FLAGS'] = 'optimizer=fast_compile,exception_verbosity=high'
 
@@ -86,9 +89,7 @@ def read_data(file_path, prepare_for='sdt', display=False):
     data['condition'] = data['stimulus_type'] + data['difficulty'] * 2
     data['accuracy'] = data['accuracy'].astype(int)
     data['difficulty'] = data['difficulty'].astype(int)
-    print(data['difficulty'])
     data['stimulus_type'] = data['stimulus_type'].astype(int)
-    print(data['stimulus_type'])
     
     if display:
         print("\nRaw data sample:")
@@ -121,6 +122,7 @@ def read_data(file_path, prepare_for='sdt', display=False):
                 signal_trials = c_data[c_data['signal'] == 0]
                 noise_trials = c_data[c_data['signal'] == 1]
                 
+                #CHAT GPT Help: need help defining 'condition' and 'difficulty'
                 if not signal_trials.empty and not noise_trials.empty:
                     sdt_data.append({
                         'pnum': pnum,
@@ -216,9 +218,23 @@ def apply_hierarchical_sdt_model(data):
     Returns:
         PyMC model object
     """
+    #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
+    data['pnum'] = data['pnum'].astype("category")
+    data['condition'] = data['condition'].astype("category")
+    
+    p_idx = data['pnum'].cat.codes.values
+    c_idx = data['condition'].cat.codes.values
+    stimulus_type = data['stimulus_type'].values
+    trial_difficulty = data['difficulty'].values 
+
+    """
     # Get unique participants and conditions
     P = len(data['pnum'].unique())
     C = len(data['condition'].unique())
+    """ 
+    # Get unique participants and conditions
+    P = len(data['pnum'].cat.categories)
+    C = len(data['condition'].cat.categories)
     
     # Define the hierarchical model
     with pm.Model() as sdt_model:
@@ -233,37 +249,60 @@ def apply_hierarchical_sdt_model(data):
         stim_prior = pm.Normal("stim_prior", mu=0.0, sigma=1.0, shape=2)
         diff_prior = pm.Normal('diff_prior', mu=0.0, sigma=1.0, shape=2)
 
+        """
         #Stimulus and trial variables 
-        stimulus_type = trial_data["stimulus_type"].values
-        trial_difficulty = trial_data["difficulty"].values
+        stimulus_type = data['stimulus_type'].values
+        trial_difficulty = data['difficulty'].values
+        """
 
-        #CHATGPT GENERATED CODE FOR TROUBLESHOOTING: Trial-level info
-        condition_idx = data["condition"].astype("category").cat.codes.values
-        stimulus_type = trial_data["stimulus_type"].astype("category").cat.codes.values
-        difficulty = trial_data["difficulty"].astype("category").cat.codes.values
-
+        """
         #CHATGPT GENERATED CODE for first line /Help on last two lines: Making stimulus type and trial difficulty PyMC compatible
-        #comp_condition = pm.Data("comp_condition", condition_idx)
 
         comp_condition = pm.Data("comp_condition", condition_idx)
         comp_stim_type = pm.Data("comp_stim_type", stimulus_type)
         comp_trial_diff = pm.Data("comp_trial_diff", trial_difficulty)
+        """
 
-
+        """
         #CHATGPT HELP: Establish mean d' 
         mu_d_prime = mean_d_prime[comp_condition] + stim_prior[comp_stim_type] + diff_prior[comp_trial_diff] 
 
+        print('mu_d_prime shape:', mu_d_prime.eval().shape)
+        """
+
+        """
+        mu_d_prime = mean_d_prime[c_idx] + stim_prior[stimulus_type] + diff_prior[trial_difficulty] 
+
+        print('mu_d_prime shape:', mu_d_prime.eval().shape)
+        """
+        #CHATGPT Generated: For Troubleshooting and help with mu_d_prime
+        # Initialize a (P, C) matrix of mu_d_prime
+        mu_d_prime = at.zeros((P, C))
+
+        # Loop through rows in the data to populate mu_d_prime at [p_idx, c_idx]
+        for i in range(len(data)):
+            p = p_idx[i]
+            c = c_idx[i]
+            stim = stim_idx[i]
+            diff = diff_idx[i]
+
+            # Expression for this trial
+            val = mean_d_prime[c] + stim_prior[stim] + diff_prior[diff]
+
+            # Assign to correct [P, C] cell using `at.set_subtensor`
+            mu_d_prime = at.set_subtensor(mu_d_prime[p, c], val)
+
 
         # Individual-level parameters
-        #d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
-        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=mu_d_prime.shape)
+        d_prime = pm.Normal('d_prime', mu=mu_d_prime, sigma=stdev_d_prime, shape=(P, C))
         criterion = pm.Normal('criterion', mu=mean_criterion, sigma=stdev_criterion, shape=(P, C))
         
         # Calculate hit and false alarm rates using SDT
+        #hit_rate = pm.math.invlogit(d_prime - criterion[data['pnum'] - 1, data['condition']])
         hit_rate = pm.math.invlogit(d_prime - criterion)
         false_alarm_rate = pm.math.invlogit(-criterion)
 
-                
+        """
         # Likelihood for signal trials
         # Note: pnum is 1-indexed in the data, but needs to be 0-indexed for the model, so we change the indexing here.  The results table will show participant numbers starting from 0, so we need to interpret the results accordingly.
         pm.Binomial('hit_obs', 
@@ -275,6 +314,18 @@ def apply_hierarchical_sdt_model(data):
         pm.Binomial('false_alarm_obs', 
                    n=data['nNoise'], 
                    p=false_alarm_rate[data['pnum']-1, data['condition']], 
+                   observed=data['false_alarms'])
+        """ 
+
+        pm.Binomial('hit_obs', 
+                   n=data['nSignal'], 
+                   p=hit_rate[p_idx, c_idx], 
+                   observed=data['hits'])
+        
+        # Likelihood for noise trials
+        pm.Binomial('false_alarm_obs', 
+                   n=data['nNoise'], 
+                   p=false_alarm_rate[p_idx, c_idx], 
                    observed=data['false_alarms'])
                 
         
@@ -414,7 +465,7 @@ def run_analysis():
     sdt_new_data = read_data(file, 'sdt') 
     print(sdt_new_data)
     #delta_new_data = read_data(file, 'delta plots')
-    #new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data, file)
+    new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data)
     #part_num = sdt_new_data["pnum"].value
     #draw_delta_plots(delta_new_data, part_num)
     #print('Successfully Generated Delta Plots')
