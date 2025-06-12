@@ -280,13 +280,6 @@ def apply_hierarchical_sdt_model(data):
     #CHATGPT Help: Checking Convergence using summary stats and a trace plot
     summary = pm.summary(trace, var_names=["beta_d", "beta_c"])
     print(summary)
-
-    """
-    sdt_plot = pm.plot_trace(trace)
-    print(sdt_plot)
-    posterior = pm.plot_posterior(trace, var_names=["d_prime", "criterion"])
-    print(posterior)
-    """
     
     return sdt_model
 
@@ -394,14 +387,12 @@ def draw_delta_plots(data, pnum):
 
 def run_analysis(): 
     file = 'data.csv'
-    #part_num = 1
     sdt_new_data = read_data(file, 'sdt') 
-    print(sdt_new_data)
-    #delta_new_data = read_data(file, 'delta plots')
+    delta_new_data = read_data(file, 'delta plots')
     new_sdt_model = apply_hierarchical_sdt_model(sdt_new_data)
-    #part_num = sdt_new_data["pnum"].value
-    #draw_delta_plots(delta_new_data, part_num)
-    #print('Successfully Generated Delta Plots')
+    for value in sdt_new_data['pnum']: 
+        draw_delta_plots(delta_new_data, value)
+    print('Successfully Generated Delta Plots')
 
 # Main execution
 if __name__ == "__main__":
